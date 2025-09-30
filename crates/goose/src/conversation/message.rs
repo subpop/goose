@@ -91,6 +91,37 @@ pub struct ToolConfirmationRequest {
     pub prompt: Option<String>,
 }
 
+/// Unified action required content for both tool confirmations and sampling approvals
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ActionRequired {
+    pub id: String,
+    #[serde(flatten)]
+    pub action_type: ActionType,
+}
+
+/// The type of action that requires user approval
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "actionType", rename_all = "camelCase")]
+pub enum ActionType {
+    #[serde(rename_all = "camelCase")]
+    ToolConfirmation {
+        tool_name: String,
+        arguments: JsonObject,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        prompt: Option<String>,
+    },
+    #[serde(rename_all = "camelCase")]
+    SamplingApproval {
+        extension_name: String,
+        #[schema(value_type = Vec<Object>)]
+        messages: Vec<rmcp::model::SamplingMessage>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        system_prompt: Option<String>,
+        max_tokens: u32,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct ThinkingContent {
     pub thinking: String,
@@ -134,6 +165,7 @@ pub enum MessageContent {
     ToolRequest(ToolRequest),
     ToolResponse(ToolResponse),
     ToolConfirmationRequest(ToolConfirmationRequest),
+    ActionRequired(ActionRequired),
     FrontendToolRequest(FrontendToolRequest),
     Thinking(ThinkingContent),
     RedactedThinking(RedactedThinkingContent),
@@ -159,6 +191,18 @@ impl fmt::Display for MessageContent {
             MessageContent::ToolConfirmationRequest(r) => {
                 write!(f, "[ToolConfirmationRequest: {}]", r.tool_name)
             }
+            MessageContent::ActionRequired(a) => match &a.action_type {
+                ActionType::ToolConfirmation { tool_name, .. } => {
+                    write!(f, "[ActionRequired: ToolConfirmation for {}]", tool_name)
+                }
+                ActionType::SamplingApproval { extension_name, .. } => {
+                    write!(
+                        f,
+                        "[ActionRequired: SamplingApproval for {}]",
+                        extension_name
+                    )
+                }
+            },
             MessageContent::FrontendToolRequest(r) => match &r.tool_call {
                 Ok(tool_call) => write!(f, "[FrontendToolRequest: {}]", tool_call.name),
                 Err(e) => write!(f, "[FrontendToolRequest: Error: {}]", e),
@@ -256,6 +300,13 @@ impl MessageContent {
         })
     }
 
+    pub fn action_required<S: Into<String>>(id: S, action_type: ActionType) -> Self {
+        MessageContent::ActionRequired(ActionRequired {
+            id: id.into(),
+            action_type,
+        })
+    }
+
     pub fn as_system_notification(&self) -> Option<&SystemNotificationContent> {
         if let MessageContent::SystemNotification(ref notification) = self {
             Some(notification)
@@ -283,6 +334,14 @@ impl MessageContent {
     pub fn as_tool_confirmation_request(&self) -> Option<&ToolConfirmationRequest> {
         if let MessageContent::ToolConfirmationRequest(ref tool_confirmation_request) = self {
             Some(tool_confirmation_request)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_action_required(&self) -> Option<&ActionRequired> {
+        if let MessageContent::ActionRequired(ref action_required) = self {
+            Some(action_required)
         } else {
             None
         }

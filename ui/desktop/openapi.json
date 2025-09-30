@@ -1982,6 +1982,94 @@
   },
   "components": {
     "schemas": {
+      "ActionRequired": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ActionType"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "description": "Unified action required content for both tool confirmations and sampling approvals"
+      },
+      "ActionType": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "toolName",
+              "arguments",
+              "actionType"
+            ],
+            "properties": {
+              "actionType": {
+                "type": "string",
+                "enum": [
+                  "toolConfirmation"
+                ]
+              },
+              "arguments": {
+                "$ref": "#/components/schemas/JsonObject"
+              },
+              "prompt": {
+                "type": "string",
+                "nullable": true
+              },
+              "toolName": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "extensionName",
+              "messages",
+              "maxTokens",
+              "actionType"
+            ],
+            "properties": {
+              "actionType": {
+                "type": "string",
+                "enum": [
+                  "samplingApproval"
+                ]
+              },
+              "extensionName": {
+                "type": "string"
+              },
+              "maxTokens": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "messages": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "systemPrompt": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        ],
+        "description": "The type of action that requires user approval",
+        "discriminator": {
+          "propertyName": "actionType"
+        }
+      },
       "Annotations": {
         "type": "object",
         "properties": {
@@ -3076,6 +3164,27 @@
                     "type": "string",
                     "enum": [
                       "toolConfirmationRequest"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ActionRequired"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "actionRequired"
                     ]
                   }
                 }

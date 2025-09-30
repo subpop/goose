@@ -19,10 +19,12 @@ pub fn format_messages(messages: &[Message]) -> Vec<Value> {
         .iter()
         .filter(|m| m.is_agent_visible())
         .filter(|message| {
-            message
-                .content
-                .iter()
-                .any(|content| !matches!(content, MessageContent::ToolConfirmationRequest(_)))
+            message.content.iter().any(|content| {
+                !matches!(
+                    content,
+                    MessageContent::ToolConfirmationRequest(_) | MessageContent::ActionRequired(_)
+                )
+            })
         })
         .map(|message| {
             let role = if message.role == Role::User {

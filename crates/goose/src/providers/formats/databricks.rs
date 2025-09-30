@@ -211,6 +211,9 @@ fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<Data
                 MessageContent::ToolConfirmationRequest(_) => {
                     // Skip tool confirmation requests
                 }
+                MessageContent::ActionRequired(_) => {
+                    // Skip action required requests - these are UI-only messages
+                }
                 MessageContent::Image(image) => {
                     // Handle direct image content
                     content_array.push(json!({

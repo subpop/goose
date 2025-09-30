@@ -4,6 +4,31 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+/**
+ * Unified action required content for both tool confirmations and sampling approvals
+ */
+export type ActionRequired = ActionType & {
+    id: string;
+};
+
+/**
+ * The type of action that requires user approval
+ */
+export type ActionType = {
+    actionType: 'toolConfirmation';
+    arguments: JsonObject;
+    prompt?: string | null;
+    toolName: string;
+} | {
+    actionType: 'samplingApproval';
+    extensionName: string;
+    maxTokens: number;
+    messages: Array<{
+        [key: string]: unknown;
+    }>;
+    systemPrompt?: string | null;
+};
+
 export type Annotations = {
     audience?: Array<Role>;
     lastModified?: string;
@@ -350,6 +375,8 @@ export type MessageContent = (TextContent & {
     type: 'toolResponse';
 }) | (ToolConfirmationRequest & {
     type: 'toolConfirmationRequest';
+}) | (ActionRequired & {
+    type: 'actionRequired';
 }) | (FrontendToolRequest & {
     type: 'frontendToolRequest';
 }) | (ThinkingContent & {

@@ -1,7 +1,14 @@
-import { Message, ToolConfirmationRequest, ToolRequest, ToolResponse } from '../api';
+import {
+  Message,
+  ToolConfirmationRequest,
+  ToolRequest,
+  ToolResponse,
+  ActionRequired,
+} from '../api';
 
 export type ToolRequestMessageContent = ToolRequest & { type: 'toolRequest' };
 export type ToolResponseMessageContent = ToolResponse & { type: 'toolResponse' };
+export type ActionRequiredMessageContent = ActionRequired & { type: 'actionRequired' };
 
 // Compaction response message - must match backend constant
 const COMPACTION_THINKING_TEXT = 'goose is compacting the conversation...';
@@ -66,6 +73,15 @@ export function getToolConfirmationContent(
   return message.content.find(
     (content): content is ToolConfirmationRequest & { type: 'toolConfirmationRequest' } =>
       content.type === 'toolConfirmationRequest'
+  );
+}
+
+export function getActionRequiredContent(
+  message: Message
+): (ActionRequired & { type: 'actionRequired' }) | undefined {
+  return message.content.find(
+    (content): content is ActionRequired & { type: 'actionRequired' } =>
+      content.type === 'actionRequired'
   );
 }
 

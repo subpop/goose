@@ -954,6 +954,11 @@ impl Agent {
                     }
                 }
 
+                // let mut sampling_approval_stream =  handle_sampling_approval_requests(self, sampling_results.clone());
+                // while let Some(msg) = sampling_approval_stream.try_next().await? {
+                //     yield AgentEvent::Message(msg.clone());
+                // }
+
                 let mut stream = Self::stream_response_from_provider(
                     self.provider().await?,
                     &system_prompt,

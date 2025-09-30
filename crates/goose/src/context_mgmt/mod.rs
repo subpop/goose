@@ -264,6 +264,17 @@ fn format_message_for_compacting(msg: &Message) -> String {
             MessageContent::ToolConfirmationRequest(req) => {
                 format!("tool_confirmation_request: {}", req.tool_name)
             }
+            MessageContent::ActionRequired(action) => {
+                use crate::conversation::message::ActionType;
+                match &action.action_type {
+                    ActionType::ToolConfirmation { tool_name, .. } => {
+                        format!("action_required(tool_confirmation): {}", tool_name)
+                    }
+                    ActionType::SamplingApproval { extension_name, .. } => {
+                        format!("action_required(sampling_approval): {}", extension_name)
+                    }
+                }
+            }
             MessageContent::FrontendToolRequest(req) => {
                 if let Ok(call) = &req.tool_call {
                     format!("frontend_tool_request: {}", call.name)

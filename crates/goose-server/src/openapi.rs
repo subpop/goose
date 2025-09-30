@@ -18,9 +18,9 @@ use goose::config::declarative_providers::{
     DeclarativeProviderConfig, LoadedProvider, ProviderEngine,
 };
 use goose::conversation::message::{
-    FrontendToolRequest, Message, MessageContent, MessageMetadata, RedactedThinkingContent,
-    SystemNotificationContent, SystemNotificationType, ThinkingContent, ToolConfirmationRequest,
-    ToolRequest, ToolResponse,
+    ActionRequired, ActionType, FrontendToolRequest, Message, MessageContent, MessageMetadata,
+    RedactedThinkingContent, SystemNotificationContent, SystemNotificationType, ThinkingContent,
+    ToolConfirmationRequest, ToolRequest, ToolResponse,
 };
 
 use utoipa::openapi::schema::{
@@ -398,6 +398,8 @@ derive_utoipa!(Icon as IconSchema);
         super::routes::session::UpdateSessionNameRequest,
         super::routes::session::UpdateSessionUserRecipeValuesRequest,
         super::routes::session::UpdateSessionUserRecipeValuesResponse,
+        ActionRequired,
+        ActionType,
         Message,
         MessageContent,
         MessageMetadata,

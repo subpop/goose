@@ -15,10 +15,12 @@ import {
   getToolRequests,
   getToolResponses,
   getToolConfirmationContent,
+  getActionRequiredContent,
   createToolErrorResponseMessage,
 } from '../types/message';
 import { Message } from '../api';
 import ToolCallConfirmation from './ToolCallConfirmation';
+import SamplingApproval from './SamplingApproval';
 import MessageCopyLink from './MessageCopyLink';
 import { NotificationEvent } from '../hooks/useMessageStream';
 import { cn } from '../utils';
@@ -50,6 +52,8 @@ export default function GooseMessage({
   const contentRef = useRef<HTMLDivElement | null>(null);
   // Track which tool confirmations we've already handled to prevent infinite loops
   const handledToolConfirmations = useRef<Set<string>>(new Set());
+  // Track which action required messages we've already handled to prevent infinite loops
+  const handledActionRequired = useRef<Set<string>>(new Set());
 
   // Extract text content from the message
   let textContent = getTextContent(message);
@@ -133,6 +137,8 @@ export default function GooseMessage({
   const messageChain = getChainForMessage(messageIndex, toolCallChains);
   const toolConfirmationContent = getToolConfirmationContent(message);
   const hasToolConfirmation = toolConfirmationContent !== undefined;
+  const actionRequiredContent = getActionRequiredContent(message);
+  const hasActionRequired = actionRequiredContent !== undefined;
 
   // Find tool responses that correspond to the tool requests in this message
   const toolResponsesMap = useMemo(() => {
@@ -179,11 +185,26 @@ export default function GooseMessage({
         );
       }
     }
+
+    // Handle cancelled ActionRequired messages (like sampling approvals)
+    if (
+      messageIndex === messageHistoryIndex - 1 &&
+      hasActionRequired &&
+      actionRequiredContent &&
+      !handledActionRequired.current.has(actionRequiredContent.id)
+    ) {
+      // Mark this action required as handled to prevent infinite loop
+      handledActionRequired.current.add(actionRequiredContent.id);
+      // For sampling approvals, we don't need to append a response like tool confirmations
+      // The component will handle showing the cancelled state
+    }
   }, [
     messageIndex,
     messageHistoryIndex,
     hasToolConfirmation,
     toolConfirmationContent,
+    hasActionRequired,
+    actionRequiredContent,
     messages,
     appendMessage,
   ]);
@@ -286,6 +307,15 @@ export default function GooseMessage({
             isCancelledMessage={messageIndex == messageHistoryIndex - 1}
             isClicked={messageIndex < messageHistoryIndex}
             toolConfirmationContent={toolConfirmationContent}
+          />
+        )}
+
+        {hasActionRequired && (
+          <SamplingApproval
+            sessionId={sessionId}
+            isCancelledMessage={messageIndex == messageHistoryIndex - 1}
+            isClicked={messageIndex < messageHistoryIndex}
+            actionRequiredContent={actionRequiredContent}
           />
         )}
       </div>

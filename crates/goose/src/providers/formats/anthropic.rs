@@ -91,7 +91,10 @@ pub fn format_messages(messages: &[Message]) -> Vec<Value> {
                     // Skip tool confirmation requests
                 }
                 MessageContent::SystemNotification(_) => {
-                    // Skip
+                    // Skip system notifications
+                }
+                MessageContent::ActionRequired(_action_required) => {
+                    // Skip action required requests - these are UI-only messages
                 }
                 MessageContent::Thinking(thinking) => {
                     content.push(json!({
