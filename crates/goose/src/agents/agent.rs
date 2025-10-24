@@ -622,8 +622,9 @@ impl Agent {
                 }
             }
             _ => {
+                let provider = self.provider().await.ok();
                 self.extension_manager
-                    .add_extension(extension.clone())
+                    .add_extension(extension.clone(), provider)
                     .await?;
             }
         }
