@@ -6,9 +6,9 @@ use serde_json::Value;
 use std::borrow::Cow;
 use std::collections::HashMap;
 
+use crate::agents::core_extension::llm_search_tool_prompt;
 use crate::agents::extension::ExtensionInfo;
 use crate::agents::recipe_tools::dynamic_task_tools::should_enabled_subagents;
-use crate::agents::router_tools::llm_search_tool_prompt;
 use crate::{config::Config, prompt_template, utils::sanitize_unicode_tags};
 
 const MAX_EXTENSIONS: usize = 5;

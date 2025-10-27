@@ -1045,14 +1045,14 @@ impl ExtensionManager {
         for extension in get_all_extensions() {
             if !extension.enabled {
                 let config = extension.config.clone();
-                
+
                 // Skip non-toggleable extensions
                 if let ExtensionConfig::Platform { toggleable, .. } = &config {
                     if toggleable == &Some(false) {
                         continue;
                     }
                 }
-                
+
                 let description = match &config {
                     ExtensionConfig::Builtin {
                         description,
@@ -1082,14 +1082,14 @@ impl ExtensionManager {
         for extension in get_all_extensions() {
             if extension.enabled {
                 let config = extension.config.clone();
-                
+
                 // Skip non-toggleable extensions
                 if let ExtensionConfig::Platform { toggleable, .. } = &config {
                     if toggleable == &Some(false) {
                         continue;
                     }
                 }
-                
+
                 enabled_extensions.push(config.name());
             }
         }
