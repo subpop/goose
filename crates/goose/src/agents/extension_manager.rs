@@ -12,6 +12,7 @@ use rmcp::transport::{
     TokioChildProcess,
 };
 use std::collections::HashMap;
+use std::option::Option;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
@@ -29,13 +30,13 @@ use super::extension::{
     ToolInfo, PLATFORM_EXTENSIONS,
 };
 use super::tool_execution::ToolCallResult;
+use super::types::SharedProvider;
 use crate::agents::extension::{Envs, ProcessExit};
 use crate::agents::extension_malware_check;
 use crate::agents::mcp_client::{McpClient, McpClientTrait};
 use crate::config::{get_all_extensions, Config};
 use crate::oauth::oauth_flow;
 use crate::prompt_template;
-use crate::providers::base::Provider;
 use rmcp::model::{
     CallToolRequestParam, Content, ErrorCode, ErrorData, GetPromptResult, Prompt, ResourceContents,
     ServerInfo, Tool,
@@ -91,6 +92,7 @@ impl Extension {
 pub struct ExtensionManager {
     extensions: Mutex<HashMap<String, Extension>>,
     context: Mutex<PlatformExtensionContext>,
+    provider: SharedProvider,
 }
 
 /// A flattened representation of a resource used by the agent to prepare inference
@@ -171,14 +173,14 @@ pub fn get_parameter_names(tool: &Tool) -> Vec<String> {
 
 impl Default for ExtensionManager {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(Mutex::new(None)))
     }
 }
 
 async fn child_process_client(
     mut command: Command,
     timeout: &Option<u64>,
-    provider: Option<Arc<dyn Provider>>,
+    provider: SharedProvider,
 ) -> ExtensionResult<McpClient> {
     #[cfg(unix)]
     command.process_group(0);
@@ -239,7 +241,7 @@ fn extract_auth_error(
 }
 
 impl ExtensionManager {
-    pub fn new() -> Self {
+    pub fn new(provider: SharedProvider) -> Self {
         Self {
             extensions: Mutex::new(HashMap::new()),
             context: Mutex::new(PlatformExtensionContext {
@@ -247,7 +249,13 @@ impl ExtensionManager {
                 extension_manager: None,
                 tool_route_manager: None,
             }),
+            provider,
         }
+    }
+
+    /// Create a new ExtensionManager with no provider (useful for tests)
+    pub fn new_without_provider() -> Self {
+        Self::new(Arc::new(Mutex::new(None)))
     }
 
     pub async fn set_context(&self, context: PlatformExtensionContext) {
@@ -266,11 +274,7 @@ impl ExtensionManager {
             .any(|ext| ext.supports_resources())
     }
 
-    pub async fn add_extension(
-        &self,
-        config: ExtensionConfig,
-        provider: Option<Arc<dyn Provider>>,
-    ) -> ExtensionResult<()> {
+    pub async fn add_extension(&self, config: ExtensionConfig) -> ExtensionResult<()> {
         let config_name = config.key().to_string();
         let sanitized_name = normalize(config_name.clone());
         let mut temp_dir = None;
@@ -348,7 +352,7 @@ impl ExtensionManager {
                         Duration::from_secs(
                             timeout.unwrap_or(crate::config::DEFAULT_EXTENSION_TIMEOUT),
                         ),
-                        provider.clone(),
+                        self.provider.clone(),
                     )
                     .await?,
                 )
@@ -389,7 +393,7 @@ impl ExtensionManager {
                     Duration::from_secs(
                         timeout.unwrap_or(crate::config::DEFAULT_EXTENSION_TIMEOUT),
                     ),
-                    provider.clone(),
+                    self.provider.clone(),
                 )
                 .await;
                 let client = if let Some(_auth_error) = extract_auth_error(&client_res) {
@@ -409,7 +413,7 @@ impl ExtensionManager {
                         Duration::from_secs(
                             timeout.unwrap_or(crate::config::DEFAULT_EXTENSION_TIMEOUT),
                         ),
-                        provider.clone(),
+                        self.provider.clone(),
                     )
                     .await?
                 } else {
@@ -433,7 +437,7 @@ impl ExtensionManager {
                 // Check for malicious packages before launching the process
                 extension_malware_check::deny_if_malicious_cmd_args(cmd, args).await?;
 
-                let client = child_process_client(command, timeout, provider.clone()).await?;
+                let client = child_process_client(command, timeout, self.provider.clone()).await?;
                 Box::new(client)
             }
             ExtensionConfig::Builtin {
@@ -462,7 +466,7 @@ impl ExtensionManager {
                 let command = Command::new(cmd).configure(|command| {
                     command.arg("mcp").arg(name);
                 });
-                let client = child_process_client(command, timeout, provider.clone()).await?;
+                let client = child_process_client(command, timeout, self.provider.clone()).await?;
                 Box::new(client)
             }
             ExtensionConfig::Platform { name, .. } => {
@@ -498,7 +502,7 @@ impl ExtensionManager {
                     command.arg("python").arg(file_path.to_str().unwrap());
                 });
 
-                let client = child_process_client(command, timeout, provider.clone()).await?;
+                let client = child_process_client(command, timeout, self.provider.clone()).await?;
 
                 Box::new(client)
             }
@@ -1255,7 +1259,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_client_for_tool() {
-        let extension_manager = ExtensionManager::new();
+        let extension_manager = ExtensionManager::new_without_provider();
 
         // Add some mock clients using the helper method
         extension_manager
@@ -1315,7 +1319,7 @@ mod tests {
     async fn test_dispatch_tool_call() {
         // test that dispatch_tool_call parses out the sanitized name correctly, and extracts
         // tool_names
-        let extension_manager = ExtensionManager::new();
+        let extension_manager = ExtensionManager::new_without_provider();
 
         // Add some mock clients using the helper method
         extension_manager
@@ -1432,7 +1436,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_availability_filtering() {
-        let extension_manager = ExtensionManager::new();
+        let extension_manager = ExtensionManager::new_without_provider();
 
         // Only "available_tool" should be available to the LLM
         let available_tools = vec!["available_tool".to_string()];
@@ -1460,7 +1464,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_availability_defaults_to_available() {
-        let extension_manager = ExtensionManager::new();
+        let extension_manager = ExtensionManager::new_without_provider();
 
         extension_manager
             .add_mock_extension_with_tools(
@@ -1485,7 +1489,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatch_unavailable_tool_returns_error() {
-        let extension_manager = ExtensionManager::new();
+        let extension_manager = ExtensionManager::new_without_provider();
 
         let available_tools = vec!["available_tool".to_string()];
 

@@ -1,4 +1,4 @@
-use crate::providers::base::Provider;
+use crate::agents::types::SharedProvider;
 use rmcp::model::{Content, ErrorCode, JsonObject};
 /// MCP client implementation for Goose
 use rmcp::{
@@ -79,13 +79,13 @@ pub trait McpClientTrait: Send + Sync {
 
 pub struct GooseClient {
     notification_handlers: Arc<Mutex<Vec<Sender<ServerNotification>>>>,
-    provider: Option<Arc<dyn Provider>>,
+    provider: SharedProvider,
 }
 
 impl GooseClient {
     pub fn new(
         handlers: Arc<Mutex<Vec<Sender<ServerNotification>>>>,
-        provider: Option<Arc<dyn Provider>>,
+        provider: SharedProvider,
     ) -> Self {
         GooseClient {
             notification_handlers: handlers,
@@ -142,6 +142,8 @@ impl ClientHandler for GooseClient {
     ) -> Result<CreateMessageResult, ErrorData> {
         let provider = self
             .provider
+            .lock()
+            .await
             .as_ref()
             .ok_or(ErrorData::new(
                 ErrorCode::INTERNAL_ERROR,
@@ -180,7 +182,7 @@ impl ClientHandler for GooseClient {
                 ErrorData::new(
                     ErrorCode::INTERNAL_ERROR,
                     "Unexpected error while completing the prompt",
-                    Some(Value::from(e.to_string()))
+                    Some(Value::from(e.to_string())),
                 )
             })?;
 
@@ -238,7 +240,7 @@ impl McpClient {
     pub async fn connect<T, E, A>(
         transport: T,
         timeout: std::time::Duration,
-        provider: Option<Arc<dyn Provider>>,
+        provider: SharedProvider,
     ) -> Result<Self, ClientInitializeError>
     where
         T: IntoTransport<RoleClient, E, A>,
@@ -247,7 +249,7 @@ impl McpClient {
         let notification_subscribers =
             Arc::new(Mutex::new(Vec::<mpsc::Sender<ServerNotification>>::new()));
 
-        let client = GooseClient::new(notification_subscribers.clone(), provider.clone());
+        let client = GooseClient::new(notification_subscribers.clone(), provider);
         let client: rmcp::service::RunningService<rmcp::RoleClient, GooseClient> =
             client.serve(transport).await?;
         let server_info = client.peer_info().cloned();
